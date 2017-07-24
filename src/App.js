@@ -3,45 +3,13 @@ import './App.css';
 import TableView from './TableView';
 import PullRequestTableView from './PullRequestTableView'
 import $ from 'jquery';
-
-class RepoButton extends Component{
-  render(){
-    return(
-      <td colSpan={2}>
-        <button onClick={this.props.onClick}>Repositories</button>
-      </td>
-    )
-  }
-}
-
-class PullRequestButton extends Component{
-  render(){
-    return(
-      <td colSpan={2}>
-        <button onClick={this.props.onClick}>Pull Requests</button>
-      </td>
-    )
-  }
-}
-
-class FormSubmit extends Component{
-  render(){
-    return(
-      <td colSpan={4}>
-        <form onSubmit={this.props.handleSubmit}>
-          <input type='text' onChange={this.props.handleChange} />
-          <input type='submit' value='submit'/>
-        </form>
-      </td>
-    )
-  }
-}
-
+import FormSubmit from './FormSubmit'
+import Header from './Header'
 
 class App extends Component {
   constructor(props){
     super(props);
-    this.state = {isActive: 'repo', value: '', data: '', pullRequest: ''};
+    this.state = {isActive: 'repo', searchText: '', data: [], pullRequest: [], show: false};
     this.handleRepoButtonClick = this.handleRepoButtonClick.bind(this);
     this.handlePullReqButtonClick = this.handlePullReqButtonClick.bind(this);
     this.handleChange = this.handleChange.bind(this);
@@ -58,28 +26,30 @@ class App extends Component {
   }
 
   handleChange(event){
-    this.setState({value: event.target.value});
+    this.setState({searchText: event.target.value});
   }
 
-  handleView(event){
-    event.preventDefault();
-    let url = 'https://api.github.com/repos/' + event.target.dataset.url + '/pulls';
-    debugger
+  handleView(childProp){
+    let url = 'https://api.github.com/repos/' + childProp.name + '/pulls?state=all';
     $.ajax({
       method: "GET",
       url: url,
-      type: 'GET',
       success: function(data) {
-            if(data.total_count > 0){
-              debugger
-              this.setState({ pullRequest: <PullRequestTableView data = {data} />});
-              this.setState({isActive: 'pullReq'});
+            if(data.length > 0){
+              let limitIndex = data.length > 10 ? 10 : data.length;
+              this.setState({ pullRequest: <PullRequestTableView 
+                                              data = {data} 
+                                              repoPath = {childProp.name}
+                                              lastIndex= {data.length}
+                                              limitIndex= {limitIndex} />, isActive: 'pullReq'});
+            }else{
+              this.setState({pullRequest: 'No Pull Request now', isActive: 'pullReq'});
             }
           }.bind(this),
       error: function(xhr, status, err) {
-        debugger
+          console.log(err);
           alert('Something went wrong.Please try again.')
-        }.bind(this)
+        }
     });
 
   }
@@ -88,51 +58,54 @@ class App extends Component {
     event.preventDefault();
     $.ajax({
       method: "GET",
-      url: "https://api.github.com/search/repositories?q=" + this.state.value,
+      url: "https://api.github.com/search/repositories?q=" + this.state.searchText,
       type: 'GET',
       success: function(data) {
             if(data.total_count > 0){
-              this.setState({ data: <TableView data = {data.items} handleView={this.handleView} />});
+              let limitIndex = data.items.length > 10 ? 10 : data.items.length;
+              this.setState({ data: <TableView 
+                                      data = {data.items}
+                                      handleView={this.handleView}
+                                      lastIndex= {data.items.length}
+                                      limitIndex= {limitIndex}/>, show: true});
+            }else{
+              this.setState({data: 'Nothing to show', show: true});
             }
           }.bind(this),
         error: function(xhr, status, err) {
+            console.log(err);
             alert('Something went wrong.Please try again.')
-          }.bind(this)
+          }
       });
   }
 
   render() {
-    if(this.state.isActive === 'repo'){
+    if(this.state.isActive === 'repo' && this.state.show){
       return (
         <div>
-          <table>
-            <tbody>
-              <tr>
-                <RepoButton onClick={this.handleRepoButtonClick} />
-                <PullRequestButton onClick={this.handlePullReqButtonClick} />
-              </tr>
-              <tr>
-                <FormSubmit handleSubmit={this.handleSubmit} handleChange={this.handleChange} />
-              </tr>
-              
-                
-              </tbody>
-          </table>
-          {this.state.data}
+          <Header handleRepoButtonClick={this.handleRepoButtonClick} handlePullReqButtonClick={this.handlePullReqButtonClick} />
+          <div className='main'>
+            <FormSubmit handleSubmit={this.handleSubmit} handleChange={this.handleChange} />
+            {this.state.data}
+          </div>
+        </div>
+      );
+    }else if(this.state.isActive === 'repo'){
+      return(
+        <div>
+          <Header handleRepoButtonClick={this.handleRepoButtonClick} handlePullReqButtonClick={this.handlePullReqButtonClick} />
+          <div className='main'>
+            <FormSubmit handleSubmit={this.handleSubmit} handleChange={this.handleChange} />
+          </div>
         </div>
       );
     }else{
       return (
         <div>
-          <table>
-            <tbody>
-              <tr>
-                <RepoButton onClick={this.handleRepoButtonClick} />
-                <PullRequestButton onClick={this.handlePullReqButtonClick} />
-              </tr>
-              </tbody>
-          </table>
-          {this.state.pullRequest}
+          <Header handleRepoButtonClick={this.handleRepoButtonClick} handlePullReqButtonClick={this.handlePullReqButtonClick} />
+          <div className='main'>
+            {this.state.pullRequest}
+          </div>
         </div>
       );
     }
